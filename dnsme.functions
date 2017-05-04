@@ -45,7 +45,7 @@ fi
 
 # Adding/updating records.
 if [[ -n $id ]] ; then
-    local old_data=$( dnsme cat $domain | $jq --argjson id $id '.data[] | select(.id==$id)' )
+    local old_data=$( dnsme cat $domain | jq --argjson id $id '.data[] | select(.id==$id)' )
     local data=$(jq -n "$data | .id=$id")
     res_info=$(echo " src: $FUNCNAME \n msg: Updating record. No output expected on success \n new_data: $data \n old_data: $old_data ")
     dnsme_api V2.0/dns/managed/$domain_id/records/$id -X PUT -d "$data"
@@ -55,7 +55,7 @@ fi
 } # function dnsme_mk
 
 function dnsme_domain_rm () {
-local domain=$1 domain_id 
+local domain=$1 serial domain_id 
 shift
 read -r domain_id serial domain < <(dnsme_domain_id $domain)
 if [[ -z $domain ]] ; then
@@ -64,8 +64,10 @@ if [[ -z $domain ]] ; then
 fi
 read -n 1 -p "Y/y to delete domain $domain: " ; read_nl
 if [[ x$REPLY == x[Yy] ]] ; then
-	dnsme_api V2.0/dns/managed/$domain_id -X DELETE -d "[$domain_id]" &&
-	echo -e " msgs: Domain $domain deleted" 1>&2
+	if dnsme_api V2.0/dns/managed/$domain_id -X DELETE -d "[$domain_id]" ; then
+		rm -f $dnsme_domains_dir/$domain
+		echo -e " msgs: Domain $domain deleted" 1>&2
+	fi
 fi
 } # end function 
 
