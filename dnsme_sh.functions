@@ -76,29 +76,28 @@ local start=$(echo $reqs | cut -d " " -f 149 | egrep -o [0-9]+$)
 local frame_end=$(( start + FRAME*60 ))
 if (( frame_end > $(date +%s) )) ; then
 	local secs_wait=$(( frame_end - $(date +%s) ))
-	echo -e " src: $(api_history) \n msg: Rate limit exceeded. Waiting $secs_wait seconds \n time: $(date)" | error_green
+	echo -e " src: $(api_history) \n msg: Rate limit exceeded. Waiting $secs_wait seconds \n time: $(date)" | error_red
 	sleep $secs_wait
 fi
 touch $dnsme_work_dir/req_ts.$(date +%s)
 }
 
 function dnsme_domain_status () {
-	local domain=$1 id
-	[[ -n $domain ]] || return 255
-	if [[ x$domain =~ ^x[0-9]+$ ]] ; then
-		dnsme api V2.0/dns/managed/$domain
-	else
-		dnsme api V2.0/dns/managed/id/$domain
+	[[ -n $1 ]] || return 255
+	local id updated name domain=$1
+	read id updated name < <(dnsme domain id $domain | egrep -o ^[0-9]+)
+	if [[ x$id =~ ^x[0-9]+$ ]] ; then
+		dnsme api V2.0/dns/managed/$id
 	fi || return
 	echo $res | json2bash
 } # end function
 	
 function dnsme_domain_id () {
 	res=$(cat $dnsme_cache | 
-	jq -e --arg domain $1 '.data[] | select(.name==$domain or (.id|tostring)==$domain)| {id,updated,name}')
+	jq -e --arg domain $1 '.data[] | select(.name==$domain or (.id|tostring)==$domain)| {id,updated,name}') 2>/dev/zero
 
 	if ! [[ x$? == x0 ]] ; then
-		echo -e " src: $(api_history) \n msgs: Domain ${1:-Null} not found" | error_green
+		echo -e " src: $(api_history) \n msgs: Domain ${1:-Null} not found" | error_red
 		return 1
 	fi
 	echo $res | json2table

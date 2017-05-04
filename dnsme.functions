@@ -38,7 +38,7 @@ if [[ -z $id && ! x$name == x ]] ; then
 	elif (( count == 1 )) ; then
    		debug="Id is already set"
 	elif (( count > 1 )) ; then
-   		echo -e " src: $api_history \n msg: $record_count identical records $name of type $type " | error_green
+   		echo -e " src: $api_history \n msg: $record_count identical records $name of type $type " | error_red
    		return 1
 	fi
 fi
@@ -77,7 +77,7 @@ local domain=$1 domain_id
 shift
 read -r domain_id serial domain < <(dnsme_domain_id $domain)
 if [[ -z $domain ]] ; then
-	echo " error: No such domain $domain" | error_green
+	echo " error: No such domain $domain" | error_red
 	return 1
 fi
 ids=$(echo $*) # second and every next record id to have exactly one leading space
