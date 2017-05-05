@@ -1,10 +1,14 @@
 # bashplus
-Manage DNS Made Easy/Incapsula/Dyn with simple bash commands like ls, rm and cat. More providers to be added soon
+Manage DNS Made Easy/Incapsula/Dyn with standards bash commands like ls, rm and cat. Vew their configuration as if it were a file system.
 
-To list all your sites in incapsula, run incap ls and you see:
+To get the idea, check my Wiki for [DNS Made Easy](https://github.com/monstruooo/bashplus/wiki/BashPlus-for-DNS-Made-Easy). 
+I have screenshots there that illustrate the concept
 
-Site Id      Site Name             Account    IPs         CNAME
+Incasula and dyn.com right now can be viewed only as PDF. But their Wikis are coming too
+1. [Incapsula](https://github.com/monstruooo/bashplus/blob/master/BashPlus_Incapsula_Extension_Walkthrough.pdf)
+1. [dyn.com](https://github.com/monstruooo/bashplus/blob/master/DynDNSWalkthrough.pdf)
 
-13663571     demo.oskar-test.com   1234567    192.1.1.1   qc6od.x.incapdns.net
+More providers to be added 
 
-To create site in DNS Made Easy, you run dnsme mk oskar-test.com and... Voila! its here
+
+
