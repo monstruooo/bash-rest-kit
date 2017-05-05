@@ -8,3 +8,5 @@ Site Id      Site Name             Account    IPs         CNAME
 13663571     demo.oskar-test.com   1234567    192.1.1.1   qc6od.x.incapdns.net
 
 To create site in DNS Made Easy, you run dnsme mk oskar-test.com and... Voila! its here
+
+[Sites Using React](https://github.com/facebook/react/wiki/Sites-Using-React)
