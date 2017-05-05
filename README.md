@@ -8,7 +8,7 @@ Incasula and dyn.com right now can be viewed only as PDF. But their Wikis are co
 1. [Incapsula](https://github.com/monstruooo/bashplus/blob/master/BashPlus_Incapsula_Extension_Walkthrough.pdf)
 1. [dyn.com](https://github.com/monstruooo/bashplus/blob/master/DynDNSWalkthrough.pdf)
 
-More providers to be added soon
+More providers to be added 
 
 
 
