@@ -89,16 +89,16 @@ function dnsme_domain_status () {
 	if [[ x$id =~ ^x[0-9]+$ ]] ; then
 		dnsme api V2.0/dns/managed/$id
 	fi || return
-	echo $res | json2bash
+	echo $res | jq . 
 } # end function
 	
 function dnsme_domain_id () {
 	res=$(cat $dnsme_cache | 
 	jq -e --arg domain $1 '.data[] | select(.name==$domain or (.id|tostring)==$domain)| {id,updated,name}') 2>/dev/zero
-
-	if ! [[ x$? == x0 ]] ; then
+	res_code=$?
+	if ! [[ x$res_code == x0 ]] ; then
 		echo -e " src: $(api_history) \n msgs: Domain ${1:-Null} not found" | error_red
-		return 1
+		return $res_code
 	fi
 	echo $res | json2table
 }
