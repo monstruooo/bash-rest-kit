@@ -213,6 +213,7 @@ dnsme_cache=$dnsme_domains_dir/dnsme.domains
 dnsme_work_dir=$dnsme_work_dir/run
 mkdir -p $dnsme_work_dir $dnsme_domains_dir
 
+jq_install
 dnsme_cfg
 
 local action=$1

@@ -1,5 +1,19 @@
 #!/bin/bash
 
+function jq_install() {
+if [[ -x /bin/jq ]] ; then
+	return
+fi
+if egrep -q 'x86_64.*Linux' ; then
+	curl -L -o /bin/jq https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64
+elif egrep -q 'i[36]86.*Linux' ; then
+	curl -L -o /bin/jq https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux32
+else
+	return 1
+fi < <( uname -a)
+chmod a+x /bin/jq
+} # end function
+
 function tabs2table() {
 cat /dev/stdin | column -x -t -s $'\t'
 }
