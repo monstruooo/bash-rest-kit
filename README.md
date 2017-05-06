@@ -1,16 +1,14 @@
 # bashplus
-Manage DNS Made Easy/Incapsula/Dyn with standards bash commands like ls, rm and cat. Vew their configuration as if it were a file system.
+Manage DNS Made Easy/Incapsula/Dyn with standards bash commands like ls, rm and cat. Vew the configuration of your sites/domains as if it were a file system.
 
 ![](https://github.com/monstruooo/images/raw/master/dnsme/mk_TXT_CNAME.jpg)
 
-To get the idea, check my Wiki for [DNS Made Easy](https://github.com/monstruooo/bashplus/wiki/BashPlus-for-DNS-Made-Easy). 
-I have screenshots there that illustrate the concept
+To get the idea, check my Wiki (dyn.com is currently available only as pdf)
+- [DNS Made Easy](https://github.com/monstruooo/bashplus/wiki/BashPlus-for-DNS-Made-Easy)
+- [Incapsula](https://github.com/monstruooo/bashplus/wiki/BashPlus-for-Incapsula)
+- [dyn.com](https://github.com/monstruooo/bashplus/blob/master/DynDNSWalkthrough.pdf)
 
-Incasula and dyn.com right now can be viewed only as PDF. But their Wikis are coming too
-1. [Incapsula](https://github.com/monstruooo/bashplus/blob/master/BashPlus_Incapsula_Extension_Walkthrough.pdf)
-1. [dyn.com](https://github.com/monstruooo/bashplus/blob/master/DynDNSWalkthrough.pdf)
-
-More providers to be added 
+More providers to be added in the future
 
 
 
