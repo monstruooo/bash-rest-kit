@@ -1,6 +1,8 @@
 # bashplus
 Manage DNS Made Easy/Incapsula/Dyn with standards bash commands like ls, rm and cat. Vew their configuration as if it were a file system.
 
+![](https://github.com/monstruooo/images/raw/master/dnsme/mk_TXT_CNAME.jpg)
+
 To get the idea, check my Wiki for [DNS Made Easy](https://github.com/monstruooo/bashplus/wiki/BashPlus-for-DNS-Made-Easy). 
 I have screenshots there that illustrate the concept
 
