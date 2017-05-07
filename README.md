@@ -10,7 +10,7 @@ For step-by-step guides, check my Wiki
 - [Incapsula](https://github.com/monstruooo/bashplus/wiki/BashPlus-for-Incapsula)
 - [dyn.com](https://github.com/monstruooo/bashplus/wiki/BashPlus-for-Dyn)
 
-More providers to be added 
+More providers to be added soon
 
 
 
