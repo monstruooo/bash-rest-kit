@@ -239,7 +239,6 @@ while read id name type ; do
 
 	( 
 		local dyn_token dyn_token_ts ;
-		dyn token get ; 
 		dyn_api https://api.dynect.net/REST/${type}Record/${domain}/${name}/${id} &&
 		echo $res > $cache
 		dyn token kill
