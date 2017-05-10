@@ -176,12 +176,8 @@ for arg in "$@" ; do
 	[[ "$arg" =~ = ]] || continue
 	key=${arg%%=*}
 	value="${arg#*=}"
-
-	local next='
-		jq throws error if string is unquoted. jq -R surrounds it with quotes
-		jq does not return error on empty echo. So grep on jq type '
-	echo "$value" | jq -e type 2>/dev/zero | egrep -q '[a-z]' || value=$(echo $value | jq -R .)
-	json=$( jq -n "$json | .$key=$value")
+	json=$( jq -e --argjson $key "$value" -n "$json | .$key=\$$key" 2>/dev/zero || 
+		jq -e --arg $key "$value" -n "$json | .$key=\$$key" ) # jq --arg converts the argument to string before using it
 done  
 echo $json | jq -c .
 } # end function
