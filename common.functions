@@ -176,8 +176,8 @@ for arg in "$@" ; do
 	[[ "$arg" =~ = ]] || continue
 	key=${arg%%=*}
 	value="${arg#*=}"
-	json=$( jq -e --argjson $key "$value" -n "$json | .$key=\$$key" 2>/dev/zero || 
-		jq -e --arg $key "$value" -n "$json | .$key=\$$key" ) # jq --arg converts the argument to string before using it
+	json=$( jq -e --argjson value "$value" -n "$json | .$key=\$value" 2>/dev/zero || 
+		jq -e  --arg value "$value" -n "$json | .$key=\$value" ) # jq --arg converts the argument to string before using it
 done  
 echo $json | jq -c .
 } # end function
