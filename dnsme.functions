@@ -1,11 +1,18 @@
 #!/bin/bash
 
+function dnsme_find () {
+local domain domain_id serial id name type value ttl json data
+domain=$1
+shift
+id=$(	dnsme cat $domain | 
+		jq --arg name "$name" '.data[]|select(.name==$name)|.id' )
+}
+
 function dnsme_mk () {
 local domain domain_id serial id name type value ttl json data
 local api_history=$(api_history)
 domain=$1
 shift
-args2vars "$@"
 if [[ -z $1 ]] ; then 
 	data=$( jq -n "{ name: \"$domain\" }")
     dnsme_api V2.0/dns/managed/ -X POST -d "$data" 
@@ -16,42 +23,63 @@ dnsme domain id $domain > /dev/zero || return
 domain_id=$(echo $res | jq -r .id)
 domain=$(echo $res | jq -r .name)
 
-data=$(args2json "$@")
-data=$( echo "$data" | jq 'if .name=="@" then .name="" else . end')
-name=${name/@/}
+######################################
 
-if [[ -z $ttl ]] ; then
-	ttl=1800
-	data=$( jq -n "$data | .ttl=$ttl")
-fi
+local data put_records post_records i
+for data in "$@" ; do ## Start for loop 
+((i++))
 
+data=$( echo "$data" | 
+jq 'if .name=="@" then .name="" else . end | if .ttl == null then .ttl=1800 else . end' )
+
+unset vars
+declare -A vars # associative arrays are local by default
+json2array "$data"
 
 flow='If no id provided and not naked record, check if record already exists and get its ip'
-if [[ -z $id && ! x$name == x ]] ; then
+if [[ -z ${vars[id]} ]] ; then
 
-	id=$( dnsme cat $domain | 
-			jq --arg name "$name" '.data[]|select(.name==$name)|.id' )
+	if [[ ${vars[name]} == '""' ]] ; then
+		vars[id]=$( dnsme cat $domain | 
+			jq ".data[]|select(.name==${vars[name]} and .type==${vars[type]} and .value==${vars[value]}) | .id" )
+	else
+		vars[id]=$( dnsme cat $domain | 
+			jq ".data[]|select(.name==${vars[name]})|.id" )
+	fi
 
-	local count=$( echo $id | wc -w )
+	local count=$( echo ${vars[id]} | wc -w )
 	if (( count == 0 )) ; then
-		unset id
+		local do_nothing='id is not set anyway'
 	elif (( count == 1 )) ; then
-   		debug="Id is already set"
+		if [[ ${vars[name]} == '""' ]] ; then
+   		echo -e " src: $api_history \n msg: Record already exists name: ${vars[name]} type: ${vars[type]} value: ${vars[value]}" | error_red
+		continue
+		fi
 	elif (( count > 1 )) ; then
-   		echo -e " src: $api_history \n msg: $record_count identical records $name of type $type " | error_red
-   		return 1
+   		echo -e " src: $api_history \n msg: $record_count identical records ${vars[name]} of type ${vars[type]} " | error_red
+   		continue
 	fi
 fi
 
-# Adding/updating records.
-if [[ -n $id ]] ; then
-    local old_data=$( dnsme cat $domain | jq --argjson id $id '.data[] | select(.id==$id)' )
-    local data=$(jq -n "$data | .id=$id")
-    res_info=$(echo " src: $FUNCNAME \n msg: Updating record. No output expected on success \n new_data: $data \n old_data: $old_data ")
-    dnsme_api V2.0/dns/managed/$domain_id/records/$id -X PUT -d "$data"
+# Adding records to relevant arrays
+if [[ -n ${vars[id]} ]] ; then
+	# dnsme_api V2.0/dns/managed/$domain_id/records/${vars[id]} -X PUT -d "$data"
+	put_records[$i]="$(jq -n "$data | .id=${vars[id]}")"
 else
-    dnsme_api V2.0/dns/managed/$domain_id/records/ -X POST -d "$data"
+	dnsme_api V2.0/dns/managed/$domain_id/records/ -X POST -d "$data"
+	post_records[$i]="$data"
 fi 
+
+done # end for data in "$@" 
+
+###############################################
+
+if (( ${#put_records[@]} > 0 )) ; then
+	dnsme_api V2.0/dns/managed/$domain_id/records/updateMulti -X PUT -d "$(echo "${put_records[@]}" | jq -c -s .)"
+elif (( ${#post_records[@]} > 0 )) ; then
+	echo dnsme_api V2.0/dns/managed/$domain_id/records/createMulti -X POST -d "$(echo "${post_records[@]}" | jq -c -s .)"
+fi
+
 } # function dnsme_mk
 
 function dnsme_domain_rm () {
