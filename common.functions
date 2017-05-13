@@ -15,7 +15,7 @@ chmod a+x /bin/jq
 } # end function
 
 function tabs2table() {
-cat /dev/stdin | column -x -t -s $'\t'
+cat /dev/stdin | column -x -t -s $'\t' -o $'\t'
 }
 
 function read_nl () { 
@@ -105,14 +105,22 @@ wait
 ((i--))
 }
 
-function json2vars () {
-local keys json="$1"
-keys=$(echo $json | jq -r keys[]);
+function json2array () {
+# You should declare vars as associative array in the calling function
+# declare -A vars
+# This array is automatically local and isolated from the parent of the calling function
+local key keys value json
+json="$1"
+shift
+if [[ -n $1 ]] ; then
+	keys="$@"
+else
+	keys=$(jq -r -n "$json | keys[]")
+fi
 for key in $keys ; do
-    value=$(echo $json | jq .$key)
-	export $key=$value
+	value=$(jq -n -e "$json | .$key") || continue
+	vars[$key]="$value"
 done
-
 }
 
 function arr2json () {
@@ -135,6 +143,19 @@ function jqres () {
 local json=$(args2json "$@")
 jq -n "$json | { res: . }"
 }
+
+function args2json_vars(){
+local arg
+for arg in "$@" ; do
+	[[ "$arg" =~ = ]] || continue
+	key=${arg%%=*}
+	arg="${arg#*=}"
+	arg=$( echo "$arg" | jq -e .  2>/dev/zero | egrep '.+' || # this egrep will fail on empty string
+		echo "$arg" | jq -R . ) # jq -R converts the argument to string
+	export $key="$arg"
+done  
+}
+
 
 function args2vars () {
 local arg key
