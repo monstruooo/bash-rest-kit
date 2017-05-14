@@ -1,0 +1,157 @@
+#!/bin/bash
+
+function is_json () {
+/bin/cat /dev/stdin | jq -e -r type 2>/dev/zero | egrep -q '[a-z]+' 2>/dev/zero
+}
+
+json2bash () {
+# select((.[1]|type)!="null" and (.[1]|type)!="array") | 
+jq  -r -c --stream '
+	if has(1) then . else empty end |
+	[[ .[0][] | if .|type=="number" then . | tostring else . end ],.[1]] |
+	(.[0]|join(" "))
+	+ "\t = "
+	+ (.[1]|tostring)
+	' /dev/stdin | # jq end - pipe continues
+	tabs2table
+}
+
+function json2fs () {
+# cat  < <(  json_to_fs $testdir/ "$json" ) to hide info about bg processes
+local key keys dir=$1 json="$2" value ptype type
+if [[ -z $json ]] ; then
+	json=$(/bin/cat /dev/stdin)
+fi
+mkdir -p "$dir"
+ptype=$(echo $json| jq -r type)
+# jq sorts keys itself'
+keys=$(echo "$json" | jq 'keys[]' 2>/dev/zero) || return 0
+for key in $keys ; do
+    case $ptype in
+		array)
+		value=$(echo $json | jq .[$key])
+		;;
+		*)	
+		value=$(echo $json | jq .$key)
+		;;
+	esac
+	key=$( echo $key | jq -r . )
+	type=$(echo $value | jq -r type 2>/dev/zero) || continue
+	case $type in
+		array)
+		json_to_fs "$dir/${key}[]" "$value" &
+		echo "$json" >  "$dir"/.json
+		;;
+		object)
+		json_to_fs "$dir/${key}" "$value" &
+		echo "$json" >  "$dir"/.json
+		;;
+		*)
+		(( i <= 0 )) && continue	
+		/bin/echo "$value" > $dir/"$key" &
+		;;
+	esac
+done 
+wait
+((i--))
+}
+
+function json2array () {
+# You should declare vars as associative array in the calling function
+# declare -A vars
+# This array is automatically local and isolated from the parent of the calling function
+local key keys value json
+json="$1"
+shift
+if [[ -n $1 ]] ; then
+	keys="$@"
+else
+	keys=$(jq -r -n "$json | keys[]")
+fi
+for key in $keys ; do
+	value=$(jq -n -e "$json | .$key") || continue
+	vars[$key]="$value"
+done
+}
+
+function jqres () {
+local json=$(args2json "$@")
+jq -n "$json | { res: . }"
+}
+
+function args2vars () {
+local arg key
+for arg in "$@" ; do
+	[[ "$arg" =~ = ]] || continue
+	key=${arg%%=*}
+	arg="${arg#*=}"
+	export $key="$arg"
+done
+
+} # end function
+
+function json2table () {
+cat /dev/stdin |
+jq -j '[ to_entries| .[].value|tostring ] |
+	join (" \t "), "\n"' |
+tabs2table
+}
+
+function get_jvalue () {
+	(( "${#@}" == 2 )) || return 1	
+	jq -n -e "$1 | if has(\"$2\") then .$2 else empty end"
+}
+
+function tojvalue () {
+	local arg
+	if (( ${#@} > 0 )) ; then
+		arg="$*"
+	else
+		arg=$(cat /dev/stdin)
+	fi
+	echo "$arg" |jq -c -e . 2>/dev/zero || 
+		echo "$arg" | jq -R -c -e .
+}
+
+function toarray () {
+local arg
+for arg in "$@" ; do
+	echo "$arg" |
+	jq . 2>/dev/zero || echo "$arg" | jq -R .
+done | 
+jq -s -c .
+}
+
+function args2json () {
+local usage='
+	This function accepts arguments as domain=oskar-test.com id=12 etc
+	It automatically identifies the json type of value. Basically its only quoting strings.
+	If unsure, embed quotes thru escaping them as name=\"123\".
+	Empty arguments like name= for dnsme naked records are assumed to be empty strings. Its the same as name=\"\" '
+
+local key value arg json
+json='{}'
+for arg in "$@" ; do
+	[[ "$arg" =~ = ]] || continue
+	key=${arg%%=*}
+	value="${arg#*=}"
+	json=$( jq -e --argjson value "$value" -n "$json | .$key=\$value" 2>/dev/zero || 
+		jq -e  --arg value "$value" -n "$json | .$key=\$value" ) # jq --arg converts the argument to string before using it
+done  
+echo $json | jq -c .
+} # end function
+
+function jq_install() {
+if [[ -x /bin/jq ]] ; then
+	return
+fi
+if egrep -q 'x86_64.*Linux' ; then
+	curl -L -o /bin/jq https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64
+elif egrep -q 'i[36]86.*Linux' ; then
+	curl -L -o /bin/jq https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux32
+else
+	return 1
+fi < <( uname -a)
+chmod a+x /bin/jq
+} # end function
+
