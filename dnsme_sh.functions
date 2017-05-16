@@ -2,8 +2,8 @@
 
 function dnsme_api () {
 
-local api_url=https://api.dnsmadeeasy.com
-[[ x$sandbox == x1 ]] && api_url=https://api.sandbox.dnsmadeeasy.com
+local api_url=https://api.dnsmadeeasy.com/V2.0
+[[ x$sandbox == x1 ]] && api_url=https://api.sandbox.dnsmadeeasy.com/V2.0
 
 dnsme_throttle # Checking that the request rate is not exceeded
 
@@ -19,9 +19,12 @@ hmac_H="x-dnsme-hmac:$hmac"
 req_date_H="x-dnsme-requestDate:$request_date"
 content_type_H="content-type:application/json"
 accept_type_H="accept:application/json"
-local url=$1
+
+local url=$1 
 shift
-url=$api_url/${url#*dnsmadeeasy.com/} # backward compatibility for calls that use full url instead of uri
+url=${url#/}  # Removing leading / from a partial url, if the user accidentally spelled it as /dns/managed
+url=${url#*dnsmadeeasy.com/V2.0/} # backward compatibility for calls that use full url
+url=$api_url/$url
 
 local src args msgs
 args=$(echo $url $*)
@@ -87,7 +90,7 @@ function dnsme_domain_status () {
 	local id updated name domain=$1
 	read id updated name < <(dnsme domain id $domain | egrep -o ^[0-9]+)
 	if [[ x$id =~ ^x[0-9]+$ ]] ; then
-		dnsme api V2.0/dns/managed/$id
+		dnsme api dns/managed/$id
 	fi || return
 	echo $res | jq . 
 } # end function
@@ -125,7 +128,7 @@ echo https://cp.dnsmadeeasy.com/dns/managed/$domain_id
 
 function dnsme_updatedb () {
 if [[ -z $1 ]] ; then
-	if dnsme_api V2.0/dns/managed ; then
+	if dnsme_api dns/managed ; then
 		echo $res > $dnsme_cache
 		dnsme purge
 	fi
@@ -133,11 +136,11 @@ if [[ -z $1 ]] ; then
 	# Will return with error of dnsme_api, if dnsme_api fails
 fi
 
-local name serial id
-read id serial name < <(dnsme domain id $1)
+local name updated id
+read id updated name < <(dnsme domain id $1)
 [[ x$id =~ ^x[0-9]+$ ]] || return 1
 local domain_cache=$dnsme_domains_dir/$name
-dnsme_api V2.0/dns/managed/$id/records && echo $res > $domain_cache
+dnsme_api dns/managed/$id/records && echo $res > $domain_cache
 }
 
 function dnsme_cat () {
@@ -166,7 +169,7 @@ function dnsme_ls () {
 if [[ -z $1 || x$1 == xdomains ]] ; then  
 	dnsme cat |
 	{ 
-	to_array "Domain Id" Serial "Domain name" ;
+	toarray "Domain Id" Serial "Domain name" ;
 	jq -r ' .data | sort_by("name") | .[] | 
 	{ id , updated, name }' ;
 	} | json2table
@@ -185,7 +188,7 @@ shift
 dnsme cat $domain |
 if [[ -z $1 ]] ; then  
 	{
-	to_array Id Name Type TTL Rdata Value ;
+	toarray Id Name Type TTL Rdata Value ;
 	# The next jq take input from the pipe
 	jq -r '.data | sort_by(.type) | .[] |
 	if .name == "" then .name="@" else . end |
