@@ -40,8 +40,7 @@ EOF
 } # end function
 
 function source_functions () {
-	local src_dir=$(readlink -e "${BASH_SOURCE[0]}")
-	src_dir="$(dirname $src_dir)"
+	local src_dir=$(dirname "${BASH_SOURCE[0]}")
 	local src_files=$(ls $src_dir/*functions -1 | fgrep -v "${BASH_SOURCE[0]}")
 	local i
 	for i in $src_files ; do
