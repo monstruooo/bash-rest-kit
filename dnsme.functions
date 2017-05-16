@@ -15,7 +15,7 @@ domain=$1
 shift
 if [[ -z $1 ]] ; then 
 	data=$( jq -n "{ name: \"$domain\" }")
-    dnsme_api V2.0/dns/managed/ -X POST -d "$data" 
+    dnsme_api dns/managed/ -X POST -d "$data" 
 	return
 fi
 
@@ -30,7 +30,9 @@ for data in "$@" ; do ## Start for loop
 ((i++))
 
 data=$( echo "$data" | 
-jq 'if .name=="@" then .name="" else . end | if .ttl == null then .ttl=1800 else . end' )
+jq 'if .name=="@" then .name="" else . end | 
+if .ttl == null then .ttl=1800 else . end |
+if has("gtdLocation") then . else .gtdLocation="DEFAULT" end ' )
 
 unset vars
 declare -A vars # associative arrays are local by default
@@ -63,10 +65,10 @@ fi
 
 # Adding records to relevant arrays
 if [[ -n ${vars[id]} ]] ; then
-	# dnsme_api V2.0/dns/managed/$domain_id/records/${vars[id]} -X PUT -d "$data"
+	# dnsme_api dns/managed/$domain_id/records/${vars[id]} -X PUT -d "$data"
 	put_records[$i]="$(jq -n "$data | .id=${vars[id]}")"
 else
-	dnsme_api V2.0/dns/managed/$domain_id/records/ -X POST -d "$data"
+	# dnsme_api dns/managed/$domain_id/records/ -X POST -d "$data"
 	post_records[$i]="$data"
 fi 
 
@@ -75,9 +77,9 @@ done # end for data in "$@"
 ###############################################
 
 if (( ${#put_records[@]} > 0 )) ; then
-	dnsme_api V2.0/dns/managed/$domain_id/records/updateMulti -X PUT -d "$(echo "${put_records[@]}" | jq -c -s .)"
+	dnsme_api dns/managed/$domain_id/records/updateMulti -X PUT -d "$(echo "${put_records[@]}" | jq -c -s .)"
 elif (( ${#post_records[@]} > 0 )) ; then
-	echo dnsme_api V2.0/dns/managed/$domain_id/records/createMulti -X POST -d "$(echo "${post_records[@]}" | jq -c -s .)"
+	dnsme_api dns/managed/$domain_id/records/createMulti -X POST -d "$(echo "${post_records[@]}" | jq -c -s .)" >/dev/zero
 fi
 
 } # function dnsme_mk
@@ -92,7 +94,7 @@ if [[ -z $domain ]] ; then
 fi
 read -n 1 -p "Y/y to delete domain $domain: " ; read_nl
 if [[ x$REPLY == x[Yy] ]] ; then
-	if dnsme_api V2.0/dns/managed/$domain_id -X DELETE -d "[$domain_id]" ; then
+	if dnsme_api dns/managed/$domain_id -X DELETE -d "[$domain_id]" ; then
 		rm -f $dnsme_domains_dir/$domain
 		echo -e " msgs: Domain $domain deleted" 1>&2
 	fi
@@ -110,6 +112,6 @@ if [[ -z $domain ]] ; then
 fi
 ids=$(echo $*) # second and every next record id to have exactly one leading space
 ids=${ids// /&ids=}
-dnsme_api V2.0/dns/managed/$domain_id/records?ids=$ids -X DELETE &&
+dnsme_api dns/managed/$domain_id/records?ids=$ids -X DELETE &&
 echo -e " msgs: Deleted records $*" 1>&2
 } # end function dnsme_rm
