@@ -74,13 +74,14 @@ else
 	name=$(jq -r -e -n "${vars[name]}")
 fi
 
-data=$(jq -e -n "$data | 
+data=$( jq -e -n "$data | 
 	del(.id,.name,.type) | 
 	if .ttl == null then 
 		.ttl=1800
 	else
 		.
-	end" ) 
+	end"
+) # end data= 
 
 local fqdn
 local logic='
