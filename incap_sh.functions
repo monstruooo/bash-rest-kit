@@ -266,7 +266,7 @@ elif [[ x$1 == xorigins ]] ; then
 		incap cat sites | 
 			jq -r 'select(.ips|inside(["'"$1"'"])) |
 			[ .site_id, .domain, .account_id, (.ips|join(",")) ]' ;
-		} | json2table
+		} | json2table 
 	else
 		{ echo -e "Origin \t Number of Sites" ;
 		incap cat sites | jq -r '.ips[]' | sort | uniq -c | sort -r -n -k 1 | awk '{print $2 " \t " $1}' ; } |
@@ -289,11 +289,11 @@ fi
 
 function incap_ls_accounts () {
 	if [[ -z $1 ]] ; then
-		{ echo '[ "Account ID", "Account Name" ]' ;
 		incap cat accounts |
-			jq -r '.accounts | sort_by(.account_name) | .[] |
-			[ .account_id, .account_name ]' ;
-		} | json2table
+			jq -r '.accounts | sort_by(.account_name) | 
+			.[] |
+			{ account_id, account_name }' |
+			 json2table
 	else
 		incap cat sites |
 			jq -r 'select((.account_id | tostring)=="'"$*"'")' |
@@ -304,7 +304,6 @@ function incap_ls_accounts () {
 incap_site_summary () {
 cat /dev/stdin |
 jq -r '
-[
 	[ "Site ID",		"= " + (.site_id?|tostring) ],
 	[ "Site Name",		"= " + .domain? ],
 	[ "Site Status",	"= " + .status ],
@@ -344,7 +343,7 @@ jq -r '
 			end 
 		) 
 	]
-] ' | jq .[] | json2table
+' | json2table
 }
 
 function incap_table () {
