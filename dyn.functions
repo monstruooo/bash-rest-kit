@@ -1,0 +1,127 @@
+#!/bin/bash
+
+function dyn_domain_rm () {
+[[ -n $1 ]] && local domain=$1 || return 1
+read -n 1 -p "Press Y/y to delete domain $domain: " ; read_nl
+if [[ x$REPLY == x[Yy] ]] ; then
+	dyn_api -X DELETE  $dyn_api/REST/Zone/$domain/ &&
+	echo $res | dyn_msg
+fi
+}
+
+function dyn_rm () {
+[[ -n $1 ]] && local domain=$1 || return 1
+shift 
+local id ids fqdn name type domain_ls
+ids=$*
+domain_ls=$(dyn_domain_ls $domain)
+for id in $ids ; do
+	read id name type < <(echo "$domain_ls" | egrep "^$id\s")
+	if [[ -z $name ]] ; then
+		echo Id $id not found | error_red
+		continue
+	fi
+	[[ $name == @ ]] && fqdn=$domain || fqdn=${name}.$domain
+	dyn_api -X DELETE https://api.dynect.net/REST/${type}Record/${domain}/$fqdn/$id 
+done
+dyn publish changes $domain
+}
+
+function dyn_mk () {
+
+if [[ x$1 == xhelp ]] ; then
+	cat << 'EOF'
+	dyn mk oskar-demo.com "$(jq -n -e "{ rname: \"oskars@oskar-demo.com\" , ttl: 1800 }" )"
+	dyn mk oskar-demo.com "$(args2json rname=oskars@oskar-demo.com ttl=1800 )"
+
+	dyn mk "$(args2json name= type=TXT rdata.txtdata="Everything is fine" ttl=1800)"
+	dyn mk "$(args2json name=spotplatform type=CNAME rdata.cname=plat.x.incapdns ttl=1800)"
+	dyn mk "$(args2json name=www type=A rdata.address=192.168.1.1 ttl=1800)"
+EOF
+	return
+fi
+
+[[ -n $1 ]] && is_json "$2" || return 1
+
+local domain=$1 
+shift
+local data="$1" 
+
+##### If domain, create domain and return
+
+if jq -e -n "$data"' | has("rname")' > /dev/zero ; then
+	dyn_api -X POST --data "$data" $dyn_api/REST/Zone/$domain/ || return $res_code
+	dyn publish zone $domain
+	return
+fi
+
+##### Creating record
+
+unset vars
+declare -A vars
+json2vars "$data" id name type
+
+local name id type
+id="${vars[id]}"
+name="${vars[name]}"
+type="${vars[type]}"
+
+if [[ -z $name || -z $type ]] ; then
+	echo Record name or type undefined | error_red
+	return 1
+else
+	type=$(jq -r -e -n "${vars[type]}")
+	name=$(jq -r -e -n "${vars[name]}")
+fi
+
+data=$(jq -e -n "$data | 
+	del(.id,.name,.type) | 
+	if .ttl == null then 
+		.ttl=1800
+	else
+		.
+	end" ) 
+
+local fqdn
+local logic='
+	spotplatform	-> spotplatform.oskar-test.com
+	@		-> oskar-test.com'
+if [[ x$name == x || $name == x@ ]] ; then
+	fqdn=$domain
+else
+	fqdn=$name.$domain
+fi 
+
+dyn_debug 'If we have the record id, we just go straight to update it and then exit'
+if [[ -n $id ]] ; then
+	if dyn_api -X PUT --data "$data" $dyn_api/REST/${type}Record/$domain/$fqdn/$id ; then
+		dyn publish changes $domain
+	fi
+	return
+fi
+
+dyn_debug 'If naked, then do it right away'
+if [[ x$fqdn == x$domain ]] ; then
+	dyn_api -X POST --data "$data" $dyn_api/REST/${type}Record/$domain/$fqdn/ && # CNAMERecord, ARecord, TXTRecord
+	dyn publish changes $domain
+	return
+fi
+
+dyn_debug 'Checking if record already exists and has id'
+id=$(dyn ls $domain | 
+	awk -F '\\s*\t\\s*' '{ if ( $1 ~ "[0-9]+" && $2=="'$name'" && $3 == "'$type'" ) print $1; }' 
+)
+ 
+if [[ x$id =~ ^x[0-9]+$ ]] ; then
+	dyn_debug 'One record exists. Updating'
+	dyn_api -X PUT --data "$data" $dyn_api/REST/${type}Record/$domain/$fqdn/$id
+elif [[ -z $id  ]] ; then
+	dyn_api -X POST --data "$data" $dyn_api/REST/${type}Record/$domain/$fqdn/
+else
+	jq --arg msg "$id" -n '{ function: "'${FUNCNAME[0]}'", msgs: ["Record id doesnt make sense " + $msg] }'  | egrep --color '.*' 1>&2 
+	return 1
+fi &&  dyn publish changes $domain 
+
+# local tmp=$(dyn_tmpfile)
+}
+
