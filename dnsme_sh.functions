@@ -97,7 +97,7 @@ function dnsme_domain_status () {
 	
 function dnsme_domain_id () {
 	res=$(cat $dnsme_cache | 
-	jq -e --arg domain $1 '.data[] | select(.name==$domain or (.id|tostring)==$domain)| {id,updated,name}') 2>/dev/zero
+	jq -e --arg domain $1 '.data[] | select(.name==$domain or (.id|tostring)==$domain)| [.id,.updated,.name]') 2>/dev/zero
 	res_code=$?
 	if ! [[ x$res_code == x0 ]] ; then
 		echo -e " src: $(api_history) \n msgs: Domain ${1:-Null} not found" | error_red
@@ -154,6 +154,7 @@ if [[ -z $1 ]] ; then
 fi
 
 local domain=$1 id serial
+shift
 read id serial domain < <(dnsme domain id $domain)
 [[ x$id =~ ^x[0-9]+$ ]] || return 1
 local domain_cache=$dnsme_domains_dir/$domain
@@ -161,22 +162,59 @@ if ! cat $domain_cache | is_json ; then
 	dnsme updatedb $domain
 fi
 res=$(<$domain_cache)
-cat $domain_cache
+if [[ -z $1 ]] ; then
+	cat $domain_cache 
+else
+	id=$1
+	cat $domain_cache |
+	jq -c ".data[] | select(.id==$id)"
+fi
+}
+
+function dnsme_ll () {
+dnsme api dns/template
+local templs=$( echo $res | 
+jq '[ .data[] | {name,id} ]' )
+
+dnsme cat | jq --argjson tmpls "$templs" '
+.data[] | .templateId as $tId | 
+{ id, name, 
+templateId: ( [ $tmpls| .[] | select(.id==$tId) ] | 
+	if length ==0 then 
+		if $tId == null then 
+			"-"
+		else
+			$tId 
+		end
+	else 
+		.[].name 
+	end ) 
+} ' | json2table 
 }
 
 function dnsme_ls () {
 
 if [[ -z $1 || x$1 == xdomains ]] ; then  
-	dnsme cat |
 	{ 
-	toarray "Domain Id" Serial "Domain name" ;
-	jq -r ' .data | sort_by("name") | .[] | 
-	{ id , updated, name }' ;
-	} | json2table
+		toarray id updated name ;
+		dnsme cat |
+		jq -r '
+		.data | 
+		sort_by("name") | 
+		.[] | { id , updated, name }' ;
+	} | 
+	json2table
 
 	return
 fi
 
+if [[ x$1 == xtemplates ]] ; then  
+	dnsme api dns/template
+	echo $res | 
+		jq -c '.data[] | { name, id, domainIds, publicTemplate }' | 
+		json2table 
+	return $res_code
+fi
 if [[ x$1 == xcache ]] ; then
 	grep -l 'type' $dnsme_domains_dir/*
 	return
@@ -187,22 +225,9 @@ domain=$1
 shift
 dnsme cat $domain |
 if [[ -z $1 ]] ; then  
-	{
-	toarray Id Name Type TTL Rdata Value ;
-	# The next jq take input from the pipe
-	jq -r '.data | sort_by(.type) | .[] |
-	if .name == "" then .name="@" else . end |
-	{ id , name, type, ttl,
-	rdata: (
-	{weight,priority,port,mxLevel} | 
-	[ to_entries[] |
-	if .value|type=="number" then .key + "=" + (.value|tostring) else empty end ] | 
-	if length > 0 then join(",") else "-" end
-	),
-	value }' ; 
-	} | json2table
+	jq -r '.data | sort_by(.type) | .[]' | json2table 
 else
-	jq -c '.data[]|select((.id|tostring)=="'$1'")' | json2bash
+	jq -c ".data[] | select(.id==$1) "' | if .name=="" then .name="@" else . end' | json2table
 fi
 } # end function 
 
