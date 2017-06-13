@@ -12,7 +12,17 @@ json2bash () {
 # select((.[1]|type)!="null" and (.[1]|type)!="array") | 
 jq  -r -c --stream '
 	if has(1) then . else empty end |
-	[[ .[0][] | if .|type=="number" then . | tostring else . end ],.[1]] |
+	[
+		[ 
+			.[0][] | 
+			if .|type=="number" then
+				. | tostring 
+			else
+				. 
+			end 
+		] , 
+		.[1]
+	] |
 	(.[0]|join(" "))
 	+ "\t = "
 	+ (.[1]|tostring)
@@ -94,25 +104,60 @@ done
 
 } # end function
 
+
 function json2table () {
+local tmp=$(mktemp)
+cat /dev/stdin | jq -s . >  $tmp
+
+local jq_fields=$(
+cat $tmp | 
+jq -j '
+if .[0]|type=="object" then
+	[ .[] | keys ] | flatten | unique | join(",") 
+else
+	empty
+end | . as $fields | $fields'
+)
+
+{
+	cat $tmp | jq -j '
+		"'$jq_fields'" | split(",")' ;
+
+	cat $tmp | 
+	if [[ -n $jq_fields ]] ; then 
+		jq -j '.[] | 
+		{ '$jq_fields' } ' 
+	else
+		jq -j '.[]'
+	fi ;
+} |
+# Next commands split arrays/objects into values separated by tabs
+jq -j ' 
+[ 
+	to_entries | 
+	.[] |
+	.value | 
+	tostring 
+] | 
+@tsv + "\n" ' |
+tabs2table
+rm -f $tmp
+}
+
+function old_json2table () {
 # run as json2table -s to slurp input into a single array first
 # This array can consist of objects with keys-values or arrays
+
 cat /dev/stdin |
-jq "$@" -j ' 
+jq "$@" -j '
 if .[0]|type=="object" then
 	.[0]|keys_unsorted
 else
 	empty
 end , .[] | [ to_entries | .[].value|tostring ] |
-join ("\t "), "\n"' |
+@tsv + "\n"' | 
 tabs2table
-}
-
-function old_json2table () {
-cat /dev/stdin |
-jq -j '[ to_entries| .[].value|tostring ] |
-	join ("\t "), "\n"' |
-tabs2table
+# join ("\t "), "\n"' |
 }
 
 function get_jvalue () {
@@ -150,14 +195,19 @@ function toargjson () {
 }
 
 function toarray () {
-local arr rg force_str
+local arr rg force_str uniq
 arr=[]
-if [[ x"$1" == x-s ]] ; then
-	force_str=1
+force_str=0
+uniq=0
+
+# if -s convert all, besides objects/arrays, to string 
+# if -u remove duplicates, also sorts the array
+while [[ x"$1" =~ ^x-[su]$ ]] ; do
+	[[ x$1 == x-s ]] && force_str=1
+	[[ x$1 == x-u ]] && uniq=1
 	shift
-else
-	force_str=0
-fi
+done
+
 while (( "${#@}" > 0 )) ; do
 	if [[ "x$1" == x- ]] ; then
 		oper=-
@@ -175,7 +225,12 @@ while (( "${#@}" > 0 )) ; do
 	arg="$(jq -c -n "$arg | if type == \"array\" then . else [ . ] end" )"
 	arr="$(jq -n -c "$arr $oper $arg")"
 done 
-jq -n -c "$arr | unique"
+jq -n -c "$arr | 
+if $uniq == 1 then 
+	unique 
+else
+	.
+end"
 }
 
 
