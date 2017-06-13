@@ -36,7 +36,7 @@ if has("gtdLocation") then . else .gtdLocation="DEFAULT" end ' )
 
 unset vars
 declare -A vars # associative arrays are local by default
-json2array "$data"
+json2vars "$data"
 
 flow='If no id provided and not naked record, check if record already exists and get its ip'
 if [[ -z ${vars[id]} ]] ; then
