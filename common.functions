@@ -1,7 +1,7 @@
 #!/bin/bash
 
 function tabs2table() {
-cat /dev/stdin | column -x -t -s $'\t' -o $'\t'
+cat /dev/stdin | column -x -t -s $'\t' -o $'\t' 
 }
 
 function read_nl () { 
@@ -32,16 +32,26 @@ function prn_col () {
         done
 } 
 
-function wk () {
-local usage=<<'EOF'
-ls -l | wk '$1,$3' 
-EOF
-	cat /dev/stdin | awk '{print '"$*"'}'
+function tawk () {
+local tmp=$(mktemp)
+cat /dev/stdin > $tmp
+local IFS=$'\t\n'
+local cols=( $(head -1 $tmp |  sed -r 's/\s*\t\s*/\t/g') )
+awk_vars="$(
+	for ((i=0;i<${#cols[@]};i++)) ; do
+		echo -n ${cols[$i]}=\$$((i+1)) \;  
+	done
+)"
+#sed -n '2,$p' $tmp | 
+cat $tmp |
+awk -F ' *\t *' "{ $awk_vars { ${*:-print} } }"
+rm -f $tmp
 } # end function
 
 function source_functions () {
 	local src_dir=$(readlink -e "${BASH_SOURCE[0]}")
 	src_dir="$(dirname $src_dir)"
+	local src_files=$(ls -1 "$src_dir"/*.functions | fgrep -v "${BASH_SOURCE[0]}")
 	local i
 	for i in $src_files ; do
 		source $i 
