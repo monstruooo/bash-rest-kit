@@ -260,7 +260,7 @@ for id in $ids ; do
 	cat $cache 
 	#jq -e . $cache || return
 done | dyn_record2table ; 
-#  jq '.data |.  + .rdata | del(.rdata)'
+# TODO:  jq '.data |.  + .rdata | del(.rdata)'
 } | tabs2table
 }
 
