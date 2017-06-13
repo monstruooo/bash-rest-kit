@@ -252,13 +252,16 @@ while read id name type ; do
 	fi
 done < <(echo "$domain_ls") | cat # cat is to hide background tasks
 #echo "$domain_ls"
-{ echo -e "Id \t Name \t Type \t TTL \t Rdata \t Target/Value" ;
+{ 
+echo -e "Id \t Name \t Type \t TTL \t Rdata \t Target/Value" ;
 local ids=$(echo "$domain_ls" | egrep -o '^[0-9]+') ;
 for id in $ids ; do
 	cache=$dyn_domains_dir/${domain}.$id
 	cat $cache 
 	#jq -e . $cache || return
-done | dyn_record2table ; } | tabs2table
+done | dyn_record2table ; 
+#  jq '.data |.  + .rdata | del(.rdata)'
+} | tabs2table
 }
 
 function dyn_ls () {
