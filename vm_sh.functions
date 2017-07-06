@@ -1,0 +1,88 @@
+#!/bin/bash
+
+function vm_creds () {
+[[ -z $vmcenter ]] && read -p "vCenter: " vmcenter
+[[ -z $vmuser ]] && read -p "User: " vmuser
+[[ -z $vmpass ]] && read -s -p "Password: " vmpass
+export vmcenter vmuser vmpass
+}
+#### end function vm_creds
+
+function vm_session_start () {
+        vm_creds
+        curl -v -L -k -X POST -H 'Accept: application/json' \
+        --basic -u $vmuser:$vmpass  \
+        https://$vmcenter/rest/com/vmware/cis/session 2>$vm_res_err > $vm_res
+        vm_session=$(jq -e -r .value $vm_res)
+}
+#### end function vm_session_start
+
+function vm_session_check () {
+        vm_creds
+        curl -v -L -k -X POST -H 'Accept: application/json' \
+        --basic -u $vmuser:$vpass \
+        -H "vmware-api-session-id: $vm_session" \
+        https://$vmcenter/rest/com/vmware/cis/session?~action=get 2>$vm_res_err | tee $vm_res
+        res=$(jq -e $vm_res)
+}
+#### end function vm_session_check
+
+function vm_session_delete () {
+        vm_creds
+        curl -v -L -k -X DELETE -H 'Accept: application/json' \
+        --basic -u $vmuser:$vpass \
+        -H "vmware-api-session-id: $vm_session" \
+        https://$vmcenter/rest/com/vmware/cis/session 2>$vm_res_err | tee $vm_res
+        res=$(jq -e $vm_res)
+}
+#### end function vm_session_delete
+
+function vm_help () {
+vm_api -X GET https://$vmcenter/rest/com/vmware/vapi/rest/navigation/component | jq .value[]
+echo ; echo
+vm_api -X GET https://$vmcenter/rest/com/vmware/vapi/rest/navigation/resource | jq .value[]
+echo ; echo
+vm_api -X GET https://$vmcenter/rest/com/vmware/content/type | jq .value[]
+}
+#### end function vm_help
+
+function vm_ls_host () {
+vm api -X GET https://$vmcenter/rest/vcenter/host
+}
+#### end function vm_ls_host
+
+function vm_api () {
+
+if [[ -z $vm_session ]] ; then
+        if ! vm_session_start ; then
+                return 11
+        fi
+fi
+
+curl -v -L -k -H 'Accept: application/json' -H "vmware-api-session-id: $vm_session" "$@" 2>$vm_res_err | tee $vm_res
+
+}
+#### end function vm_api
+
+function vm () {
+[[ -z $vm_res ]] && vm_res=$(mktemp)
+[[ -z $vm_res_err ]] && vm_res_err=$(mktemp)
+# echo $vm_res $vm_res_err
+
+vm_creds
+
+local action=$1
+shift
+case $action in
+        session|ls)
+                vm_${action}_"$@"
+                ;;
+        *)
+                vm_${action} "$@"
+                ;;
+esac
+rm -f $vm_res $vm_res_err
+
+}
+#### end function vm
+
