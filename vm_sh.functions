@@ -10,29 +10,38 @@ export vmcenter vmuser vmpass
 
 function vm_session_start () {
         vm_creds
-        curl -v -L -k -X POST -H 'Accept: application/json' \
+        curl -v -L -k -c $vm_cookie_jar -X POST -H 'Accept: application/json' \
         --basic -u $vmuser:$vmpass  \
-        https://$vmcenter/rest/com/vmware/cis/session 2>$vm_res_err > $vm_res
+        https://$vmcenter/rest/com/vmware/cis/session?~action=create 2>$vm_res_err > $vm_res
         vm_session=$(jq -e -r .value $vm_res)
 }
 #### end function vm_session_start
 
+function vm_session_get () {
+        vm_creds
+        curl -v -L -k -c $vm_cookie_jar -X GET -H 'Accept: application/json' \
+        -H "vmware-api-session-id: $vm_session" \
+        "https://$vmcenter/rest/com/vmware/cis/session" 2>$vm_res_err | tee $vm_res
+        res=$(jq -e $vm_res)
+}
+#### end function vm_session_check
+
 function vm_session_check () {
         vm_creds
-        curl -v -L -k -X POST -H 'Accept: application/json' \
-        --basic -u $vmuser:$vpass \
+        curl -v -L -k -c $vm_cookie_jar -X POST -H 'Accept: application/json' \
+        --basic -u $vmuser:$vmpass \
         -H "vmware-api-session-id: $vm_session" \
-        https://$vmcenter/rest/com/vmware/cis/session?~action=get 2>$vm_res_err | tee $vm_res
+        "https://$vmcenter/rest/com/vmware/cis/session?~action=get" 2>$vm_res_err | tee $vm_res
         res=$(jq -e $vm_res)
 }
 #### end function vm_session_check
 
 function vm_session_delete () {
         vm_creds
-        curl -v -L -k -X DELETE -H 'Accept: application/json' \
-        --basic -u $vmuser:$vpass \
+        curl -v -L -k -c $vm_cookie_jar -X DELETE -H 'Accept: application/json' \
         -H "vmware-api-session-id: $vm_session" \
         https://$vmcenter/rest/com/vmware/cis/session 2>$vm_res_err | tee $vm_res
+        #--basic -u $vmuser:$vmpass \
         res=$(jq -e $vm_res)
 }
 #### end function vm_session_delete
@@ -59,12 +68,13 @@ if [[ -z $vm_session ]] ; then
         fi
 fi
 
-curl -v -L -k -H 'Accept: application/json' -H "vmware-api-session-id: $vm_session" "$@" 2>$vm_res_err | tee $vm_res
+curl -v -L -k -c $vm_cookie_jar -H 'Accept: application/json' -H "vmware-api-session-id: $vm_session" "$@" 2>$vm_res_err | tee $vm_res
 
 }
 #### end function vm_api
 
 function vm () {
+[[ -z $vm_cookie_jar ]] && vm_cookie_jar=$(mktemp)
 [[ -z $vm_res ]] && vm_res=$(mktemp)
 [[ -z $vm_res_err ]] && vm_res_err=$(mktemp)
 # echo $vm_res $vm_res_err
@@ -81,7 +91,7 @@ case $action in
                 vm_${action} "$@"
                 ;;
 esac
-rm -f $vm_res $vm_res_err
+#rm -f $vm_res $vm_res_err
 
 }
 #### end function vm
