@@ -27,6 +27,10 @@ creds.each do |cred|
         end
 end
 
+hyper = ENV['vmcenter']
+user = ENV['vmuser']
+pass = ENV['vmpass']
+
 puts "Connecting..."
 vim = RbVmomi::VIM.connect :host => hyper, :user => user, :password => pass, :insecure => true
 
